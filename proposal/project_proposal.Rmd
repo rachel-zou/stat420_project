@@ -17,27 +17,3 @@ options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
 ```
 
 
-# Proposal Details
-
-
-A proposal of your intended project should include the following.
-
-1. The names of the students who will be contributing to the group project.
-2. A tentative title for the project.
-3. Description of the data file (what they contain including number of variables and number of records). You do not necessarily have to list all the variables, but at least mention those of greatest importance.
-4. Background information on the data sets, including specific citation of their source (so that I can also access it).
-5. A brief statement of the business, science, research, or personal interest you have in the data set which you hope to explore. 6. Evidence that the data can be loaded into R. Load the data, and print the first few values of the response variable as evidence.
-
-Simply submit a single document outlining the proposal.
-
-After review of the proposal, it will be evaluated in one of two ways.
-
-Approved (1) - Your group may proceed with your plans for the data and project.
-Pending (0) - I will provide suggestions, concerns, or needed information that must be addressed before the proposal will be approved.
-There is a 5-point deduction from the project grade for late proposal submissions.
-
-
-
-
-
-<br/>
