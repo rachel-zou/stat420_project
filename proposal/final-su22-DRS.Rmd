@@ -41,16 +41,26 @@ Attribute Information:
 - Holiday - Holiday, No holiday 
 - Functional Day - Functional or Non-functional days of rental bike system
 
-## Our business interest
-
+## Our Interest
+This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions. 
 
 
 ## Data in R
 
 The data file can be successfully loaded into R. We have printed out the structure and first few rows of the data file below.
 
+The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names.  
+
 ```{r}
-bike = read.csv("SeoulBikeData.csv")
+columns = c("Date","Rented.Bike.Count","Hour","Temperature","Humidity",
+            "Wind.Speed","Visibility","Dew.point.temperature",
+            "Solar.Radiation","Rainfall","Snowfall","Seasons","Holiday",
+            "Functioning.Day")
+bike = read.csv("../data/SeoulBikeData.csv", col.names = columns)
 str(bike)
+```
+
+```{r}
 head(bike)
 ```
+
