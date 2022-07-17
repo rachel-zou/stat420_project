@@ -1,0 +1,56 @@
+---
+title: "Understanding Factors Affecting Bike Sharing Demand in Seoul"
+author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
+date: '2022-07-16'
+output:
+  pdf_document: default
+  html_document: 
+    theme: readable
+    toc: yes
+urlcolor: cyan
+---
+
+***
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
+```
+
+## Description of the data file
+
+This data file contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information. It has 14 variables and 8760 observations. We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (3 categorical variables and several continuous numeric variables) affect the count of bikes rented at each hour. Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc. 
+
+## Background information on the data set
+
+The original data comes from [http://data.seoul.go.kr](http://data.seoul.go.kr). The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand). 
+
+Attribute Information:
+
+- Date : month/day/year 
+- Rented Bike count - Count of bikes rented at each hour 
+- Hour - Hour of the day 
+- Temperature - Temperature in Celsius 
+- Humidity - % 
+- Windspeed - m/s 
+- Visibility - 10m 
+- Dew point temperature - Celsius 
+- Solar radiation - MJ/m2 
+- Rainfall - mm 
+- Snowfall - cm 
+- Seasons - Winter, Spring, Summer, Autumn 
+- Holiday - Holiday, No holiday 
+- Functional Day - Functional or Non-functional days of rental bike system
+
+## Our business interest
+
+
+
+## Data in R
+
+The data file can be successfully loaded into R. We have printed out the structure and first few rows of the data file below.
+
+```{r}
+bike = read.csv("SeoulBikeData.csv")
+str(bike)
+head(bike)
+```
