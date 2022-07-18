@@ -1,7 +1,7 @@
 ---
-title: "Understanding Factors Affecting Bike Sharing Demand in Seoul"
+title: "Seoul Bike Sharing Demand Analysis and Prediction"
 author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
-date: '2022-07-16'
+date: '2022-07-17'
 output:
   pdf_document: default
   html_document: 
@@ -43,7 +43,6 @@ Attribute Information:
 
 ## Our Interest
 This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions. 
-
 
 ## Data in R
 
