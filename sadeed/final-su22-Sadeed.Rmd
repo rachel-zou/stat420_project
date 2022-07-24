@@ -1,0 +1,280 @@
+---
+title: "Seoul Bike Sharing Demand Analysis and Prediction"
+author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
+date: '2022-07-22'
+output:
+  pdf_document: default
+  html_document: 
+    theme: readable
+    toc: yes
+urlcolor: cyan
+---
+
+***
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
+```
+
+## Description of the data file
+
+This data file contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information. It has 14 variables and 8760 observations. We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (3 categorical variables and several continuous numeric variables) affect the count of bikes rented at each hour. Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc. 
+
+## Background information on the data set
+
+The original data comes from [http://data.seoul.go.kr](http://data.seoul.go.kr). The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand). 
+
+Attribute Information:
+
+- Date : month/day/year 
+- Rented Bike count - Count of bikes rented at each hour 
+- Hour - Hour of the day 
+- Temperature - Temperature in Celsius 
+- Humidity - % 
+- Windspeed - m/s 
+- Visibility - 10m 
+- Dew point temperature - Celsius 
+- Solar radiation - MJ/m2 
+- Rainfall - mm 
+- Snowfall - cm 
+- Seasons - Winter, Spring, Summer, Autumn 
+- Holiday - Holiday, No holiday 
+- Functional Day - Functional or Non-functional days of rental bike system
+
+## Our Interest
+This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions. 
+
+## Data in R
+
+The data file can be successfully loaded into R. We have printed out the structure and first few rows of the data file below.
+
+The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names.  
+
+```{r}
+columns = c("Date","Rented","Hour","Temp","Humidity","Wind","Visibility","Dew",
+            "Radiation","Rain","Snow","Season","Holiday","Functioning")
+bike = read.csv("../data/SeoulBikeData.csv", col.names = columns)
+str(bike)
+```
+
+```{r message=TRUE, warning=FALSE}
+library(lubridate)
+
+bike$Date = as.Date(bike$Date, '%d/%m/%Y')
+bike$Weekday = weekdays(bike$Date, abbreviate=TRUE)
+# bike$Weekend = ifelse(bike$Weekday == "Sun" | bike$Weekday == "Sat", "Yes", "No")
+
+# bike$Hour = as.factor(bike$Hour)
+bike$Season = as.factor(bike$Season)
+bike$Holiday = as.factor(bike$Holiday)
+bike$Functioning = as.factor(bike$Functioning)
+bike$Weekday = as.factor(bike$Weekday)
+
+str(bike)
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data = bike, aes(x = Date, y = Rented)) +
+      geom_bar(stat = "identity", fill = "blue") +
+      labs(title = "Number of bikes rented ",
+           subtitle = "2017 December to November 2018",
+           x = "Date", y = "Rented Bikes Count")
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(corrr)
+library(dplyr)
+bike_num = subset(bike, select = -c(Date, Hour, Season, Holiday, Functioning, Weekday) )
+correlations = corrr::correlate(bike_num)
+top_3 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), desc(r)), 5)
+top_3
+```
+
+
+```{r}
+bike_cln= subset(bike, select = -c(Date, Dew) )
+str(bike_cln)
+```
+```{r}
+mod_additive = lm(Rented ~ ., data = bike_cln)
+summary(mod_additive)$r.squared
+summary(mod_additive)$adj.r.squared
+```
+
+```{r}
+bike_hr = data.frame(bike_cln)
+bike_hr$Hour = as.factor(bike_hr$Hour)
+mod_additive_hr = lm(Rented ~ ., data = bike_hr)
+summary(mod_additive_hr)$r.squared
+summary(mod_additive_hr)$adj.r.squared
+```
+
+```{r}
+mod_interact = lm(Rented ~ .^2, data = bike_cln)
+summary(mod_interact)$r.squared
+summary(mod_interact)$adj.r.squared
+```
+
+```{r}
+mod_interact_hr = lm(Rented ~ .^2, data = bike_hr)
+summary(mod_interact_hr)$r.squared
+summary(mod_interact_hr)$adj.r.squared
+```
+
+```{r}
+anova(mod_additive, mod_additive_hr)
+anova(mod_interact, mod_interact_hr)
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(dplyr) 
+library(tibble) 
+library(dlookr)
+```
+
+
+```{r}
+diagnose_numeric(bike_cln)
+```
+
+
+```{r}
+bike_cln %>% plot_outlier(Wind)
+```
+
+This will generate an HTML report of the data:
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# diagnose_web_report(bike_cln)
+```
+
+
+```{r}
+normality(bike_cln)
+```
+
+
+```{r}
+bike_hr %>% plot_normality(Rented, Temp)
+```
+
+```{r}
+# library(caret)
+# cc = caret::preProcess(data.frame(bike_cln$Temp), method=c("BoxCox"))
+# bike_cln$Temp = predict(cc, bike_cln$Temp)
+```
+
+```{r}
+bike_hr = base::transform(bike_hr, Rented = sqrt(Rented))
+bike_hr %>% plot_normality(Rented)
+```
+
+```{r}
+plot_correlate(bike_hr)
+```
+
+This will generate an HTML report of the data:
+
+```{r include=FALSE}
+# install.packages('forecast', dependencies = TRUE)
+# eda_web_report(bike_hr)
+```
+
+
+```{r}
+mod_interact_hr_sq = lm(Rented ~ .^2, data = bike_hr)
+summary(mod_interact_hr_sq)$r.squared
+summary(mod_interact_hr_sq)$adj.r.squared
+```
+
+```{r}
+
+# mod_int_aic = step(mod_interact, direction = "backward", trace = 0)
+mod_int_aic = lm(formula = Rented ~ Hour + Temp + Humidity + Wind + Visibility + 
+    Radiation + Rain + Snow + Season + Holiday + Functioning + 
+    Weekday + Hour:Temp + Hour:Humidity + Hour:Visibility + Hour:Radiation + 
+    Hour:Rain + Hour:Season + Hour:Holiday + Hour:Functioning + 
+    Hour:Weekday + Temp:Humidity + Temp:Wind + Temp:Radiation + 
+    Temp:Snow + Temp:Season + Temp:Holiday + Temp:Functioning + 
+    Temp:Weekday + Humidity:Wind + Humidity:Visibility + Humidity:Radiation + 
+    Humidity:Rain + Humidity:Season + Humidity:Functioning + 
+    Humidity:Weekday + Wind:Visibility + Wind:Radiation + Wind:Rain + 
+    Wind:Season + Wind:Weekday + Visibility:Radiation + Visibility:Snow + 
+    Visibility:Season + Visibility:Holiday + Visibility:Weekday + 
+    Radiation:Season + Radiation:Holiday + Radiation:Functioning + 
+    Radiation:Weekday + Rain:Season + Rain:Functioning + Rain:Weekday + 
+    Snow:Season + Season:Holiday + Season:Functioning + Season:Weekday + 
+    Holiday:Functioning + Holiday:Weekday, data = bike_cln)
+
+summary(mod_int_aic)$r.squared
+summary(mod_int_aic)$adj.r.squared
+```
+
+```{r}
+calc_loocv_rmse = function(model) {
+  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
+}
+```
+
+
+```{r}
+calc_loocv_rmse(mod_add_aic)
+calc_loocv_rmse(mod_additive)
+calc_loocv_rmse(mod_additive_hr)
+calc_loocv_rmse(mod_interact)
+calc_loocv_rmse(mod_interact_hr)
+calc_loocv_rmse(mod_interact_hr_sq)
+```
+
+Split data into train/test to test the models:
+
+```{r}
+set.seed(420)
+bike_hr_idx = sample(1:nrow(bike_hr), 8000)
+bike_hr_trn = bike_hr[bike_hr_idx, ]
+bike_hr_tst = bike_hr[-bike_hr_idx, ]
+
+bike_cln_trn = bike_cln[bike_hr_idx, ]
+bike_cln_tst = bike_cln[-bike_hr_idx, ]
+
+```
+
+```{r}
+RMSE <- function(model, data) {
+  n = nrow(data)
+  y_hat = predict(model, data)
+  resid = data$Rented - y_hat
+  sqrt(sum(resid ^ 2) / n)
+}
+```
+
+```{r}
+mod_additive_trn = lm(Rented ~ ., data = bike_cln_trn)
+RMSE(mod_additive_trn, bike_cln_tst)
+
+mod_additive_hr_trn = lm(Rented ~ ., data = bike_hr_trn)
+RMSE(mod_additive_hr_trn, bike_hr_tst)
+
+mod_interact_trn = lm(Rented ~ .^2, data = bike_cln_trn)
+RMSE(mod_interact_trn, bike_cln_tst)
+
+mod_interact_hr_trn = lm(Rented ~ .^2, data = bike_hr_trn)
+RMSE(mod_interact_hr_trn, bike_hr_tst)
+
+mod_interact_hr_sq_trn = lm(Rented ~ .^2, data = bike_hr_trn)
+RMSE(mod_interact_hr_sq_trn, bike_hr_tst)
+
+```
+
+
+
+
+
+
+
+
+
