@@ -3,10 +3,10 @@ title: "Seoul Bike Sharing Demand Analysis and Prediction"
 author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
 date: '2022-07-22'
 output:
-  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
+  pdf_document: default
 urlcolor: cyan
 ---
 
@@ -48,7 +48,7 @@ This data set is interesting to us both personally and business-wise. Recently w
 
 The data file can be successfully loaded into R. We have printed out the structure and first few rows of the data file below.
 
-The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names.  
+The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names. 
 
 ```{r}
 columns = c("Date","Rented.Bike.Count","Hour","Temperature","Humidity",
@@ -61,34 +61,33 @@ head(bike)
 ```
 
 ```{r}
-library(lubridate)
-
 bike$Date = as.Date(bike$Date, '%d/%m/%Y')
+range(bike$Date)
 
-bike$year = as.numeric(format(bike$Date, '%Y'))
-bike$month = as.numeric(format(bike$Date, '%m'))
-bike$wday = wday(bike$Date)  # Assuming Week Starts on Sunday. 1 and 7 should be weekends
-bike$weekend = ifelse(bike$wday == 1 | bike$wday ==7, "Yes", "No")
+bike$month = as.numeric(format(bike$Date,'%m'))
+bike$wday = substr(weekdays(bike$Date), 1, 3)
+bike$weekend = ifelse(bike$wday == 'Sat' | bike$wday =='Sun', "Yes", "No")
 ```
 
-```{r}
-table(bike$year)
-table(bike$month)
-table(bike$wday)
-```
+We first converted Date into the proper date format for R to work with. Then we checked the range of the dates in our data set, which is one year's data from 2017-12-01 to 2018-11-30. So we probably don't need the year variable here. But we created several other variables like month, weekday and weekend and think these variables will help us better understand the seasonality and weekly fluctuations in bike demand.
 
 ```{r}
 bike$Seasons = as.factor(bike$Seasons)
 bike$Holiday = as.factor(bike$Holiday)
 bike$Functioning.Day = as.factor(bike$Functioning.Day)
-bike$year = as.factor(bike$year)
+bike$Hour = as.factor(bike$Hour)
 bike$month = as.factor(bike$month)
 bike$wday = as.factor(bike$wday)
 bike$weekend = as.factor(bike$weekend)
 str(bike)
 ```
 
+We successfully coerced the categorical variables into factors.
+
+## Exploratory Data Analysis
+
 ```{r}
+# Create some numeric dummy variables so we can include them in the correlation table. 
 bike$Seasons.Sp = 1 * as.numeric(bike$Seasons == "Spring")
 bike$Seasons.Su = 1 * as.numeric(bike$Seasons == "Summer")
 bike$Seasons.Fa = 1 * as.numeric(bike$Seasons == "Autumn")
@@ -98,79 +97,87 @@ bike$Holiday.Yes = 1 * as.numeric(bike$Holiday == "Holiday")
 bike$Functioning.Day.Yes = 1 * as.numeric(bike$Functioning.Day == "Yes")
 bike$weekend.Yes = 1 * as.numeric(bike$weekend == "Yes")
 
-bike_num = subset(bike, select = -c(Date, Seasons, Holiday, Functioning.Day, year, month, wday, weekend) )
+bike_num = subset(bike, select = -c(Date, Seasons, Holiday, Functioning.Day, Hour, month, wday, weekend) )
 ```
 
 ```{r}
-pairs(bike_num)
+# Comment out for now since the chart will be too big. 
+# Maybe we just include some most important variables in the chart?
+#pairs(bike_num)
 ```
 
 ```{r}
-cor(bike_num)
+round(cor(bike_num), 2)
 ```
 
-```{r}
-plot(Rented.Bike.Count ~ Hour, data = bike)
+```{r, message = FALSE, warning = FALSE}
+library(corrr)
+library(dplyr)
+
+correlations = corrr::correlate(bike_num)
+top_5 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), desc(r)), 5)
+top_5
 ```
 
-```{r}
-plot(Rented.Bike.Count ~ Temperature, data = bike)
-```
+We printed out the top 5 highly correlated variables in the data set. We can see we have some highly correlated variables in the data set, which could suggest multicollinearity. We may want to address this later in the modeling process since we are interested in interpreting the coefficients.
 
 ```{r}
-plot(Rented.Bike.Count ~ Humidity, data = bike)
+hist(bike$Rented.Bike.Count, 
+     breaks = 25, 
+     ylab = 'Frequency of Rental', 
+     xlab = 'Count of Bikes Rented at Each Hour', 
+     main = 'Distribution of Bike Rental Count')
 ```
 
-```{r}
-plot(Rented.Bike.Count ~ Wind.Speed, data = bike)
-```
+From the histogram of the response variable above, we can see the distribution is highly skewed, which means transformation may help our modeling process later.
 
 ```{r}
-plot(Rented.Bike.Count ~ Visibility, data = bike)
-```
+par(mfrow=c(2, 2))
 
-```{r}
-plot(Rented.Bike.Count ~ Dew.point.temperature, data = bike)
-```
-```{r}
-plot(Rented.Bike.Count ~ Solar.Radiation, data = bike)
-```
-
-```{r}
-plot(Rented.Bike.Count ~ Rainfall, data = bike)
-```
-
-```{r}
-plot(Rented.Bike.Count ~ Snowfall, data = bike)
-```
-
-```{r}
+plot(Rented.Bike.Count ~ weekend, data = bike)
 plot(Rented.Bike.Count ~ Seasons, data = bike)
-```
-
-```{r}
 plot(Rented.Bike.Count ~ Holiday, data = bike)
-```
-
-```{r}
 plot(Rented.Bike.Count ~ Functioning.Day, data = bike)
 ```
 
-```{r}
-plot(Rented.Bike.Count ~ wday, data = bike)
-```
-
-```{r}
-plot(Rented.Bike.Count ~ weekend, data = bike)
-```
+We can see we usually have higher rented bike counts on weekdays and non-holidays - perhaps more people use rental bikes as a commute method instead of using it for leisure purpose.
+We have highest rented bike counts during summer and lowest counts during winter, which makes sense.
+We have more rented bike counts during functioning days of the rental bike system, which makes sense too.
 
 ```{r}
 plot(Rented.Bike.Count ~ month, data = bike)
 ```
 
+Further drill seasons down to month, we can see the rental bike count reaches the peak in Jun and the lowest point in Jan.
+
 ```{r}
-model = lm(Rented.Bike.Count ~ . - Date, data = bike)
-summary(model)
+plot(Rented.Bike.Count ~ wday, data = bike)
 ```
+
+Generally speaking, we have lower demands on Saturday and Sunday, while other weekdays have similar higher demand.
+
+```{r}
+plot(Rented.Bike.Count ~ Hour, data = bike)
+```
+
+We can two peaks on the rental bike count vs hour chart: one at 8 AM and the other one at 6 PM, which correspond with the peak commute hours.
+
+```{r}
+par(mfrow=c(2, 4))
+
+plot(Rented.Bike.Count ~ Temperature, data = bike)
+plot(Rented.Bike.Count ~ Humidity, data = bike)
+plot(Rented.Bike.Count ~ Wind.Speed, data = bike)
+plot(Rented.Bike.Count ~ Visibility, data = bike)
+plot(Rented.Bike.Count ~ Dew.point.temperature, data = bike)
+plot(Rented.Bike.Count ~ Solar.Radiation, data = bike)
+plot(Rented.Bike.Count ~ Rainfall, data = bike)
+plot(Rented.Bike.Count ~ Snowfall, data = bike)
+```
+
+Rented bike counts generally increase as temperature and dew point temperature rise, but decrease quickly once they pass the optimal range.
+For humidity and wind speed, there also exist an obvious optimal range that lead to highest rented bike counts.
+The better the visibility, the higher the rented bike count is.
+Rainfall and Snowfall cause a sharply decreased demand of rental bikes.
 
 
