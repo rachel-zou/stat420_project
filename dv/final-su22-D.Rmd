@@ -3,52 +3,85 @@ title: "Seoul Bike Sharing Demand Analysis and Prediction"
 author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
 date: '2022-07-17'
 output:
+  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
-  pdf_document: default
 urlcolor: cyan
 ---
 
-***
+------------------------------------------------------------------------
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
 ```
 
+# A Model for Prediction Goal
+
+- Family,Form,Fit of Model
+- Elements of a good model for Prediction
+
+## What Family, Fit and Form to use ?
+
+### Family : Parametric Model
+### Form : Linear Models
+### Fit : SLR, MLR and GLR Models
+
+## What is a good  Prediction Model ?
+### Model assumptions applicability 
+    - LINE - Not important for Prediction
+    - Data Analysis 
+        - Unusual Observations in Observed Data ?  Guard against over-fitting
+            - Leverage, Outliers, Influence
+            - Variable Selection 
+            - Transformations needed ? 
+
+### Model Building and Diagnostics
+#### Maximize R2, Adjusted R2, Multiple R2
+    - Compare Bigger Vs Smaller models 
+    - Compare Models with predictor Interactions, higher order predictors 
+    -  Variable Selection Precedures:
+        AIC, BIC , Step and exhaustive
+    
+#### Minimize RMSE, LOOCV RMSE
+    - Train, test split
+    - Select 2-3 Models and compare and contrast
+
+
 ## Description of the data file
 
-This data file contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information. It has 14 variables and 8760 observations. We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (3 categorical variables and several continuous numeric variables) affect the count of bikes rented at each hour. Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc. 
+This data file contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information. It has 14 variables and 8760 observations. We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (3 categorical variables and several continuous numeric variables) affect the count of bikes rented at each hour. Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc.
 
 ## Background information on the data set
 
-The original data comes from [http://data.seoul.go.kr](http://data.seoul.go.kr). The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand). 
+The original data comes from <http://data.seoul.go.kr>. The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand).
 
 Attribute Information:
 
-- Date : month/day/year 
-- Rented Bike count - Count of bikes rented at each hour 
-- Hour - Hour of the day 
-- Temperature - Temperature in Celsius 
-- Humidity - % 
-- Windspeed - m/s 
-- Visibility - 10m 
-- Dew point temperature - Celsius 
-- Solar radiation - MJ/m2 
-- Rainfall - mm 
-- Snowfall - cm 
-- Seasons - Winter, Spring, Summer, Autumn 
-- Holiday - Holiday, No holiday 
-- Functional Day - Functional or Non-functional days of rental bike system
+-   Date : month/day/year
+-   Rented Bike count - Count of bikes rented at each hour
+-   Hour - Hour of the day
+-   Temperature - Temperature in Celsius
+-   Humidity - %
+-   Windspeed - m/s
+-   Visibility - 10m
+-   Dew point temperature - Celsius
+-   Solar radiation - MJ/m2
+-   Rainfall - mm
+-   Snowfall - cm
+-   Seasons - Winter, Spring, Summer, Autumn
+-   Holiday - Holiday, No holiday
+-   Functional Day - Functional or Non-functional days of rental bike system
 
 ## Our Interest
-This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions. 
+
+This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions.
 
 ## Data in R
 
 The data file can be successfully loaded into R. We have printed out the structure and first few rows of the data file below.
 
-The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names.  
+The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %. We load the data using cleaned up column names.
 
 ```{r}
 columns = c("Date","Rented.Bike.Count","Hour","Temperature","Humidity",
@@ -69,7 +102,9 @@ bike$month = as.numeric(format(bike$Date,'%m'))
 bike$wday = wday(bike$Date)
 ```
 
-``` {r}
+## Data Review
+
+```{r}
 # brief review data
 length(bike$Rented.Bike.Count)
 bike[(which.max(bike$Rented.Bike.Count)),"Rented.Bike.Count"]
@@ -101,7 +136,10 @@ bike_data = cbind(rented.bike.count = bike$Rented.Bike.Count,
             holiday = bike$holiday,
             functioning.day = bike$functioning.day 
             )
-pairs(bike_data, col = "dodgerblue")
+```
+
+```{r}
+#pairs(bike_data, col = "dodgerblue")
 
 ```
 
@@ -114,6 +152,36 @@ round(cor(bike_data), 2)
 # next visibility ,functioning.day >=0.2
 
 ```
+
+# Model Building for Prediction Goal
+
+- Family,Form,Fit of Model
+- Elements of a good model for Prediction
+
+## What Family, Fit and Form to use ?
+
+### Family : Parametric Model
+### Form : Linear Models
+### Fit : SLR, MLR and GLR Models
+
+## What is a good  Prediction Model ?
+### Model assumptions applicability 
+    - LINE ? Not important for Prediction
+    - Unusual Observations in Observed Data ?  Guard against over-fitting
+        - Leverage, Outliers, Influence
+        - Variable Selection 
+        - Transformations needed ? 
+
+### Model Building and Diagnostics
+#### Maximize R2, Adjusted R2, Multiple R2
+    - Compare Bigger Vs Smaller models 
+    - Compare Models with predictor Interactions, higher order predictors 
+    -  Variable Selection Precedures:
+        AIC, BIC , Step and exhaustive
+    
+#### Minimize RMSE, LOOCV RMSE
+    - Train, test split
+    - Select 2-3 Models and compare and contrast
 
 
 ```{r}
@@ -137,4 +205,8 @@ summary(fit_all_additive)
 calc_loocv_rmse(fit_order_2)
 
 anova(fit_all_additive, fit_order_2)
+```
+
+```{r}
+
 ```
