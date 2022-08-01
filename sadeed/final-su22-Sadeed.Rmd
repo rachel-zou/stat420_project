@@ -57,7 +57,7 @@ bike = read.csv("../data/SeoulBikeData.csv", col.names = columns)
 str(bike)
 ```
 
-```{r message=TRUE, warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(lubridate)
 
 bike$Date = as.Date(bike$Date, '%d/%m/%Y')
@@ -73,14 +73,17 @@ bike$Weekday = as.factor(bike$Weekday)
 str(bike)
 ```
 
+The data is for one year (from Dec 2017 to Dec 2018)
 
 ```{r}
 library(ggplot2)
 ggplot(data = bike, aes(x = Date, y = Rented)) +
-      geom_bar(stat = "identity", fill = "blue") +
-      labs(title = "Number of bikes rented ",
-           subtitle = "2017 December to November 2018",
-           x = "Date", y = "Rented Bikes Count")
+    scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") +
+    theme(axis.text.x=element_text(angle=60, hjust=1)) +
+    geom_bar(stat = "identity", fill = "blue") +
+    labs(title = "Number of bikes rented ",
+         subtitle = "2017 December to November 2018",
+         x = "Date", y = "Rented Bikes Count")
 ```
 
 
@@ -93,23 +96,39 @@ top_3 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), de
 top_3
 ```
 
+Drop Data and Dew:
 
 ```{r}
 bike_cln= subset(bike, select = -c(Date, Dew) )
 str(bike_cln)
 ```
+
 ```{r}
 mod_additive = lm(Rented ~ ., data = bike_cln)
 summary(mod_additive)$r.squared
 summary(mod_additive)$adj.r.squared
 ```
 
+Checking for multicollinearity in the data, we see that `Temp` has a rather high variance inflation factor. 
+
+```{r message=FALSE, warning=FALSE}
+library(faraway)
+vif(mod_additive)
+```
+
 ```{r}
+# copy dataset to test Hour as factor variable
 bike_hr = data.frame(bike_cln)
 bike_hr$Hour = as.factor(bike_hr$Hour)
+# _hr for using Hour as factor
 mod_additive_hr = lm(Rented ~ ., data = bike_hr)
 summary(mod_additive_hr)$r.squared
 summary(mod_additive_hr)$adj.r.squared
+```
+
+
+```{r}
+vif(mod_additive_hr)
 ```
 
 ```{r}
@@ -143,7 +162,7 @@ diagnose_numeric(bike_cln)
 
 
 ```{r}
-bike_cln %>% plot_outlier(Wind)
+bike_cln %>% plot_outlier(Rented)
 ```
 
 This will generate an HTML report of the data:
@@ -157,9 +176,11 @@ This will generate an HTML report of the data:
 normality(bike_cln)
 ```
 
+Check normality of each numeric variable and 
 
 ```{r}
-bike_hr %>% plot_normality(Rented, Temp)
+bike_hr %>% plot_normality(Rented, Temp, Humidity, Wind, Visibility, Radiation,
+                           Rain, Snow)
 ```
 
 ```{r}
@@ -168,14 +189,7 @@ bike_hr %>% plot_normality(Rented, Temp)
 # bike_cln$Temp = predict(cc, bike_cln$Temp)
 ```
 
-```{r}
-bike_hr = base::transform(bike_hr, Rented = sqrt(Rented))
-bike_hr %>% plot_normality(Rented)
-```
-
-```{r}
-plot_correlate(bike_hr)
-```
+We will use Hour as factor going forward.
 
 This will generate an HTML report of the data:
 
@@ -184,12 +198,30 @@ This will generate an HTML report of the data:
 # eda_web_report(bike_hr)
 ```
 
+Check model after taking sqrt of Rented:
 
 ```{r}
-mod_interact_hr_sq = lm(Rented ~ .^2, data = bike_hr)
-summary(mod_interact_hr_sq)$r.squared
-summary(mod_interact_hr_sq)$adj.r.squared
+# add 1 to response variable to avoid errors in log
+bike_hr$Rented = bike_hr$Rented + 1
 ```
+
+```{r}
+# mod_interact_sq = lm(Rented ~ .^2, data = bike_sqrt)
+mod_interact_sq = lm(sqrt(Rented) ~ .^2, data = bike_hr)
+summary(mod_interact_sq)$r.squared
+summary(mod_interact_sq)$adj.r.squared
+```
+
+Check log transformation on Rented:
+
+```{r}
+# mod_interact_log = lm(Rented ~ .^2, data = bike_log)
+mod_interact_log = lm(log(Rented) ~ .^2, data = bike_hr)
+summary(mod_interact_log)$r.squared
+summary(mod_interact_log)$adj.r.squared
+```
+
+This model was picked after running AIC on the model with all interactions:
 
 ```{r}
 
@@ -214,6 +246,8 @@ summary(mod_int_aic)$r.squared
 summary(mod_int_aic)$adj.r.squared
 ```
 
+Check cross-validated RMSE of different models:
+
 ```{r}
 calc_loocv_rmse = function(model) {
   sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
@@ -222,56 +256,95 @@ calc_loocv_rmse = function(model) {
 
 
 ```{r}
-calc_loocv_rmse(mod_add_aic)
 calc_loocv_rmse(mod_additive)
 calc_loocv_rmse(mod_additive_hr)
 calc_loocv_rmse(mod_interact)
 calc_loocv_rmse(mod_interact_hr)
-calc_loocv_rmse(mod_interact_hr_sq)
+calc_loocv_rmse(mod_int_aic)
+
+# can't use this fuction to compare models with log(Rented) or sqrt(Rented)
+# calc_loocv_rmse(mod_interact_sq) # the output doesn't mean the same here
+# calc_loocv_rmse(mod_interact_log)
 ```
+
+The model with log transformation of `Rented` achieves the best LOOCV RMSE.
 
 Split data into train/test to test the models:
 
 ```{r}
 set.seed(420)
-bike_hr_idx = sample(1:nrow(bike_hr), 8000)
-bike_hr_trn = bike_hr[bike_hr_idx, ]
-bike_hr_tst = bike_hr[-bike_hr_idx, ]
-
-bike_cln_trn = bike_cln[bike_hr_idx, ]
-bike_cln_tst = bike_cln[-bike_hr_idx, ]
-
+bike_idx = sample(1:nrow(bike_hr), 8000)
+bike_trn = bike_hr[bike_idx, ]
+bike_tst = bike_hr[-bike_idx, ]
 ```
 
 ```{r}
-RMSE <- function(model, data) {
+RMSE <- function(model, data, trans = "") {
   n = nrow(data)
   y_hat = predict(model, data)
-  resid = data$Rented - y_hat
+  if(trans=="log") {
+      resid = data$Rented - exp(y_hat)
+  } else if (trans=="sqrt"){
+      resid = data$Rented - y_hat^2
+  } else {
+      resid = data$Rented - y_hat
+  }
   sqrt(sum(resid ^ 2) / n)
 }
 ```
 
+
+```{r warning=FALSE}
+mod_additive_trn = lm(Rented ~ ., data = bike_trn)
+RMSE(mod_additive_trn, bike_tst)
+
+mod_interact_trn = lm(Rented ~ .^2, data = bike_trn)
+RMSE(mod_interact_trn, bike_tst)
+
+mod_interact_sq_trn = lm(sqrt(Rented) ~ .^2, data = bike_trn)
+RMSE(mod_interact_sq_trn, bike_tst, trans = "sqrt")
+
+mod_interact_log_trn = lm(log(Rented) ~ .^2, data = bike_trn)
+RMSE(mod_interact_log_trn, bike_tst, trans = "log")
+
+```
+
+Check fitted vs residuals for some models:
+
 ```{r}
-mod_additive_trn = lm(Rented ~ ., data = bike_cln_trn)
-RMSE(mod_additive_trn, bike_cln_tst)
+par(mfrow = c(1, 2))
 
-mod_additive_hr_trn = lm(Rented ~ ., data = bike_hr_trn)
-RMSE(mod_additive_hr_trn, bike_hr_tst)
+plot(fitted(mod_interact_trn), resid(mod_interact_trn), col = "grey", pch = 20,
+     xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
+abline(h = 0, col = "darkorange", lwd = 2)
 
-mod_interact_trn = lm(Rented ~ .^2, data = bike_cln_trn)
-RMSE(mod_interact_trn, bike_cln_tst)
+qqnorm(resid(mod_interact_trn), main = "Normal Q-Q Plot", col = "darkgrey")
+qqline(resid(mod_interact_trn), col = "dodgerblue", lwd = 2)
+```
 
-mod_interact_hr_trn = lm(Rented ~ .^2, data = bike_hr_trn)
-RMSE(mod_interact_hr_trn, bike_hr_tst)
+```{r}
+par(mfrow = c(1, 2))
 
-mod_interact_hr_sq_trn = lm(Rented ~ .^2, data = bike_hr_trn)
-RMSE(mod_interact_hr_sq_trn, bike_hr_tst)
+plot(fitted(mod_interact_sq_trn), resid(mod_interact_sq_trn), col = "grey", pch = 20,
+     xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
+abline(h = 0, col = "darkorange", lwd = 2)
 
+qqnorm(resid(mod_interact_sq_trn), main = "Normal Q-Q Plot", col = "darkgrey")
+qqline(resid(mod_interact_sq_trn), col = "dodgerblue", lwd = 2)
 ```
 
 
 
+```{r}
+par(mfrow = c(1, 2))
+
+plot(fitted(mod_interact_log_trn), resid(mod_interact_log_trn), col = "grey", pch = 20,
+     xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
+abline(h = 0, col = "darkorange", lwd = 2)
+
+qqnorm(resid(mod_interact_log_trn), main = "Normal Q-Q Plot", col = "darkgrey")
+qqline(resid(mod_interact_log_trn), col = "dodgerblue", lwd = 2)
+```
 
 
 
