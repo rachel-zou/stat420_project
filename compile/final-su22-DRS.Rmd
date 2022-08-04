@@ -1,12 +1,11 @@
 ---
 title: "Seoul Bike Sharing Demand Analysis and Prediction"
-author: "Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2), Rui Zou (ruizou4)"
-date: '2022-07-30'
+date: '2022-08-03'
 output:
+  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
-  pdf_document: default
 urlcolor: cyan
 ---
 
@@ -16,17 +15,19 @@ urlcolor: cyan
 options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
 ```
 
-## Description of the data file
+## Introduction
 
-This data file contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information.
-It has 14 variables and 8760 observations.
-We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (3 categorical variables and several continuous numeric variables) affect the count of bikes rented at each hour.
-Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc.
+### Description of the data file
 
-## Background information on the data set
+We select a data file which contains count of public bikes rented at each hour in Seoul Bike Sharing System with the corresponding weather data and holidays information. It is a substantially large data file with 8760 observations and 14 variables. We are interested in using Rented.Bike.Count (a numeric variable) as our response variable and explore how other factors (a mix of categorical variables and continuous numeric variables) affect the count of bikes rented at each hour. Among the other 13 variables which we plan to use as potential predictors, we know from intuition that some may have more importance than others, like temperature, humidity, wind speed, visibility, seasons, and holiday, etc.
 
-The original data comes from <http://data.seoul.go.kr>.
-The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand).
+### Our Interest
+
+This data set is interesting to us both personally and business-wise. Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes. There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation. We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes. Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance. It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons. Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions.
+
+### Background information on the data set
+
+The original data comes from <http://data.seoul.go.kr>. The holiday information comes from [SOUTH KOREA PUBLIC HOLIDAYS](http://publicholidays.go.kr). A clean version can be found at [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Seoul+Bike+Sharing+Demand).
 
 Attribute Information:
 
@@ -45,23 +46,13 @@ Attribute Information:
 -   Holiday - Holiday, No holiday
 -   Functional Day - Functional or Non-functional days of rental bike system
 
-## Our Interest
+## Methods
 
-This data set is interesting to us both personally and business-wise.
-Recently we have seen a rise in the delivery, accessibility, and usage of regular and electric rental bikes.
-There are clear environmental, health, and economical benefits associated with the usage of bikes as a mode of transportation.
-We would like to find out what factors lead to an increase in number of bikes rented and what factors have inverse effect on using rental bikes.
-Learning about such factors can help a bike rental business manage its inventory and supply without any hindrance.
-It can also help cities plan accordingly due to an increase of bikers, e.g. opening up more bike lanes during certain days or seasons.
-Environmentally, we will have a better understanding of the feasibility of turning a city into a "bike city" or looking at alternative options if a city is not friendly to bikers due to harsh weather conditions.
+### Data in R
 
-## Data in R
+First of all, we loaded the data file in R. Since the column names in the original `csv` file contain measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %, we loaded the data using cleaned up column names.
 
-The data file can be successfully loaded into R.
-We have printed out the structure and first few rows of the data file below.
-
-The column names in the `csv` file contains measurement units (like `Wind speed (m/s), Solar Radiation (MJ/m2)`) and characters such as $^\circ$ and %.
-We load the data using cleaned up column names.
+We printed out the structure and first few rows of the data file below. We also confirmed that the data file doesn't have any null values.
 
 ```{r}
 columns = c("Date","Rented","Hour","Temp","Humidity",
@@ -71,47 +62,44 @@ columns = c("Date","Rented","Hour","Temp","Humidity",
 bike = read.csv("../data/SeoulBikeData.csv", col.names = columns)
 str(bike)
 head(bike)
+is.null(bike)  
 ```
 
 ```{r}
-bike$Date = as.Date(bike$Date, '%d/%m/%Y')
-range(bike$Date)
-
-bike$Month = as.numeric(format(bike$Date,'%m'))
+bike$Date    = as.Date(bike$Date, '%d/%m/%Y')
+bike$Month   = as.numeric(format(bike$Date,'%m'))
 bike$Weekday = weekdays(bike$Date, abbreviate = TRUE)
 bike$Weekend = ifelse(bike$Weekday == 'Sat' | bike$Weekday =='Sun', "Yes", "No")
+
+range(bike$Date)
 ```
 
-We first converted Date into the proper date format for R to work with.
-Then we checked the range of the dates in our data set, which is one year's data from 2017-12-01 to 2018-11-30.
-So we probably don't need the year variable here.
-But we created several other variables like month, weekday and weekend and think these variables will help us better understand the seasonality and weekly fluctuations in bike demand.
+We then converted the Date variable into proper date format for R to work with. Then we checked the range of the dates in our data set, which is one year's data from 2017-12-01 to 2018-11-30. So we probably don't need the year variable here. But we created several other variables like month, weekday and weekend and think these variables will help us better understand the seasonality and weekly fluctuations in bike demand.
 
 ```{r}
-bike$Season = as.factor(bike$Season)
-bike$Holiday = as.factor(bike$Holiday)
+bike$Season      = as.factor(bike$Season)
+bike$Holiday     = as.factor(bike$Holiday)
 bike$Functioning = as.factor(bike$Functioning)
-#bike$Hour = as.factor(bike$Hour)
-#bike$Month = as.factor(bike$Month)
-bike$Weekday = as.factor(bike$Weekday)
-bike$Weekend = as.factor(bike$Weekend)
-str(bike)
+bike$Weekday     = as.factor(bike$Weekday)
+bike$Weekend     = as.factor(bike$Weekend)
+
+# Change the order of the Weekday factor variable
+bike$Weekday = factor(bike$Weekday, 
+                      levels = c('Sun','Mon','Tue','Wed', 'Thu', 'Fri', 'Sat'))
 ```
 
-We successfully coerced the categorical variables into factors.
+We successfully coerced the categorical variables into factor variables to help with the data exploration and modeling process in the next steps.
 
-## Exploratory data analysis
+### Exploratory data analysis
+
+Before we start any modeling process, let's try to understand our data better and gain a more intuitive understanding about our variables.
 
 ```{r}
-bike_num = subset(bike, select = -c(Date, Season, Holiday, Functioning, Weekday, Weekend) )
+bike_num = subset(bike, select = -c(Date, Season, Holiday, Functioning, Weekday, Weekend))
 round(cor(bike_num), 2)
 ```
 
-```{r}
-# Comment out for now since the chart will be too big. 
-# Maybe we just include some most important variables in the chart?
-#pairs(bike_num)
-```
+Looking at the pairwise correlation among the variables, we can see Temperature has the highest correlation with rented bike counts (0.54). Hour and Dew also have high correlation with the response variable, 0.41 and 0.38 respectively.
 
 ```{r, message = FALSE, warning = FALSE}
 library(corrr)
@@ -122,27 +110,25 @@ top_5 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), de
 top_5
 ```
 
-We printed out the top 5 highly correlated variables in the data set.
-We can see we have some highly correlated variables in the data set, which could suggest multi-collinearity.
-We may want to address this later in the modeling process since we are interested in interpreting the coefficients.
+We printed out the top 5 highly correlated variables in the data set and can see we have some highly correlated variables in the data set, which could suggest multi-collinearity. We may want to address this later in the modeling process since we are interested in interpreting the coefficients.
 
 ```{r}
 library(ggplot2)
 ggplot(data = bike, aes(x = Date, y = Rented)) +
-      geom_bar(stat = "identity", fill = "blue") +
-      labs(title = "Number of bikes rented ",
-           subtitle = "2017 December to November 2018",
-           x = "Date", y = "Rented Bikes Count")
+       geom_bar(stat = "identity", fill = "blue") +
+       labs(title = "Number of bikes rented ",
+            subtitle = "2017 December to November 2018",
+            x = "Date", y = "Rented Bikes Count")
 ```
 
-<Placer Holder for some comments>
+We can clearly see there is seasonality in the demand of rented bikes.
 
 ```{r}
 hist(bike$Rented, 
      breaks = 25, 
-     ylab = 'Frequency of Rental', 
-     xlab = 'Count of Bikes Rented at Each Hour', 
-     main = 'Distribution of Bike Rental Count')
+     ylab   = 'Frequency of Rental', 
+     xlab   = 'Count of Bikes Rented at Each Hour', 
+     main   = 'Distribution of Bike Rental Count')
 ```
 
 From the histogram of the response variable above, we can see the distribution is highly skewed, which means transformation may help our modeling process later.
@@ -150,15 +136,13 @@ From the histogram of the response variable above, we can see the distribution i
 ```{r}
 par(mfrow=c(2, 2))
 
-plot(Rented ~ Weekend, data = bike)
-plot(Rented ~ Season, data = bike)
-plot(Rented ~ Holiday, data = bike)
+plot(Rented ~ Weekend,     data = bike)
+plot(Rented ~ Season,      data = bike)
+plot(Rented ~ Holiday,     data = bike)
 plot(Rented ~ Functioning, data = bike)
 ```
 
-We can see we usually have higher rented bike counts on weekdays and non-holidays - perhaps more people use rental bikes as a commute method instead of using it for leisure purpose.
-We have highest rented bike counts during summer and lowest counts during winter, which makes sense.
-We have more rented bike counts during functioning days of the rental bike system, which makes sense too.
+We can see we usually have higher rented bike counts on weekdays and non-holidays - perhaps more people use rental bikes as a commute method instead of using it for leisure purpose. We have highest rented bike counts during summer and lowest counts during winter, which makes sense. We actually don't have any rented bikes on non-functioning days of the rental bike system.
 
 ```{r}
 plot(Rented ~ as.factor(Month), 
@@ -166,7 +150,7 @@ plot(Rented ~ as.factor(Month),
      data = bike)
 ```
 
-Further drill seasons down to month, we can see the rental bike count reaches the peak in Jun and the lowest point in Jan.
+Further drilling seasons down to month, we can see the rental bike count reaches the peak in Jun and the lowest point in Jan.
 
 ```{r}
 plot(Rented ~ Weekday, data = bike)
@@ -180,29 +164,60 @@ plot(Rented ~ as.factor(Hour),
      data = bike)
 ```
 
-We can two peaks on the rental bike count vs hour chart: one at 8 AM and the other one at 6 PM, which correspond with the peak commute hours.
+We can see two peaks on the rental bike count vs hour chart: one at 8 AM and the other one at 6 PM, which correspond with the peak commute hours. This supports our assumption earlier that people may use rented bikes more as a commute method.
+
+```{r}
+ggplot(bike,                                      
+       aes(x = Hour,
+           y = Rented,
+           fill = Weekday)) +
+  facet_grid(. ~ Weekday) +
+  geom_bar(stat = "identity",
+           position = "dodge")
+```
+
+Combine Weekday and Hour together, we can see that on weekdays, the hourly trend is similar - a small peak in the morning, and then the demand grows stronger in the afternoon and continues into the evening. During weekends, the demand peaks around evening time.
 
 ```{r}
 par(mfrow=c(2, 4))
 
-plot(Rented ~ Temp, data = bike)
-plot(Rented ~ Humidity, data = bike)
-plot(Rented ~ Wind, data = bike)
+plot(Rented ~ Temp,       data = bike)
+plot(Rented ~ Humidity,   data = bike)
+plot(Rented ~ Wind,       data = bike)
 plot(Rented ~ Visibility, data = bike)
-plot(Rented ~ Dew, data = bike)
-plot(Rented ~ Radiation, data = bike)
-plot(Rented ~ Rain, data = bike)
-plot(Rented ~ Snow, data = bike)
+plot(Rented ~ Dew,        data = bike)
+plot(Rented ~ Radiation,  data = bike)
+plot(Rented ~ Rain,       data = bike)
+plot(Rented ~ Snow,       data = bike)
 ```
 
-Rented bike counts generally increase as temperature and dew point temperature rise, but decrease quickly once they pass the optimal range.
-For humidity and wind speed, there also exist an obvious optimal range that lead to highest rented bike counts.
-The better the visibility, the higher the rented bike count is.
-Rainfall and Snowfall cause a sharply decreased demand of rental bikes.
+Rented bike counts generally increase as temperature and dew point temperature rise, but decrease quickly once they pass the optimal range. For humidity and wind speed, there also exist an obvious optimal range that lead to highest rented bike counts. The better the visibility, the higher the rented bike count is. Rainfall and Snowfall cause a sharply decreased demand of rental bikes. Since they are highly skewed, we may try to transform these two variables later in the modeling process.
 
-## Modeling
+### Outlier diagnostics
 
-### The naive additive model
+Let's check if our data-set has outliers.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(dplyr) 
+library(tibble) 
+library(dlookr)
+```
+
+```{r}
+diagnose_numeric(bike)
+```
+
+```{r}
+bike %>% plot_outlier(Rented)
+```
+
+We do have outliers for Rented, Wind, Radiation, Rain and Snow. This also supports our previous observations from the EDA charts that some of these variables are highly skewed. If we remove outliers from the response variable, the distribution becomes a bit more evenly spread.
+
+But by examining the boundaries of these variables, we understand that these are extreme weather conditions, valid data instead of data errors. These outliers don't necessary have a big impact on the prediction. We decide to keep them in the dataset.
+
+### Modeling
+
+#### A naive additive model
 
 First of all, we take a look at the most basic model - an additive model using all the predictors in their original format.
 
@@ -211,53 +226,42 @@ mod_naive = lm(Rented ~ ., data = bike)
 summary(mod_naive)
 ```
 
-The result is not too bad.
-We got an adjusted $R^2$ of `r summary(mod_naive)$adj.r.squared` ~~0.558~~ and an extremely small p-value.
-It looks like this base model can explain more than 55% of the variance in the response variable.
-We also notice that we obviously have a variable that can be completely derived from another variable - Weekend, so it's redundant.
-Let's try to improve the model.
+The result is not too bad. We got an adjusted $R^2$ of `r summary(mod_naive)$adj.r.squared` and an extremely small p-value. It looks like this base model can explain more than 55% of the variance in the response variable. We also notice that we obviously have a variable that can be completely derived from another variable - Weekend, so it's redundant. Let's try to improve the model.
 
-### Variable Selection and Transformations
+#### Variable Selection and Transformations
 
-#### Eliminating variables
-
-Let's drop some variables: - Date: Too many distinct values for a categorical variable.
-~~- Dew: Has high correlation with Temperature.~~ - Weekend: Created for data exploration purposes but all the information can be derived from Weekday.
-- Season: Can be derived from Month.
+Let's drop some variables: - Date: Too many distinct values for a categorical variable. - Weekend: Created for data exploration purposes but all the information can be derived from Weekday. - Season: Can be derived from Month.
 
 ```{r}
-#bike_cln = subset(bike, select = -c(Date, Dew, Weekend, Season))
 bike_cln = subset(bike, select = -c(Date, Weekend, Season))
-str(bike_cln)
 ```
 
-##### A basic additive model on the cleaner dataset
+#### A basic additive model on the cleaner data-set
 
 ```{r}
 mod_additive = lm(Rented ~ ., data = bike_cln)
 summary(mod_additive)$adj.r.squared
 ```
 
-The above gives us a $R^2$ at `r summary(mod_additive)$adj.r.squared` ~~0.533.~~
-
-##### Checking for multi-collinearity in the dataset version-1
+The above gives us an adjusted $R^2$ score at `r summary(mod_additive)$adj.r.squared`. It's lower than the previous adjusted $R^2$ score since we removed some predictors.
 
 ```{r}
 library(faraway)
 vif(mod_additive)[vif(mod_additive) > 5]
 ```
 
-We do have high variance inflation factors but choose to ignore this concern for building a prediction model.
+We do have high variance inflation factors. We decide to keep them since they don't usually impact our predictions much.
 
-#### Use of factor variables
+#### A basic additive model with factor variables
 
 Let's try to convert Hour and Month to factor variables - although they are numeric numbers now, they can only have certain values and we can't say the difference in average rented bike counts between Hour 1 and 2 will be the same as the difference in average rented bike counts between Hour 17 and 18.
 
 ```{r}
 # Copy dataset to test Hour and Month as factor variables
-bike_factor = data.frame(bike_cln)
-bike_factor$Hour = as.factor(bike_factor$Hour)
+bike_factor       = data.frame(bike_cln)
+bike_factor$Hour  = as.factor(bike_factor$Hour)
 bike_factor$Month = as.factor(bike_factor$Month)
+
 # Build the model using Hour and Month as factor variables
 mod_additive_factor = lm(Rented ~ ., data = bike_factor)
 summary(mod_additive_factor)$adj.r.squared
@@ -265,17 +269,13 @@ summary(mod_additive_factor)$adj.r.squared
 
 After conversion, the model gives a better adjusted $R^2$ score at `r summary(mod_additive_factor)$adj.r.squared` now.
 
-##### Checking for multi-collinearity in the dataset version-2
-
 ```{r}
 vif(mod_additive_factor)[vif(mod_additive_factor) > 5]
 ```
 
-Now we can see Temperature and some Month variables are high variance inflation factors.
-This makes sense since Temperature usually has some correlation with seasonality / month.
-Again we choose to ignore this for the process of modeling the observations for prediction purposes.
+We can see Temperature and some Month variables are high variance inflation factors. This makes sense since Temperature usually has some correlation with seasonality / month. Again we decide to keep them since they won't impact our predictions much.
 
-##### Fit an interaction model using the dataset without the factor variables conversion, dataset version-1
+#### An interaction model using the data-set without the factor variables conversion
 
 ```{r}
 mod_interact = lm(Rented ~ . ^ 2, data = bike_cln)
@@ -284,18 +284,16 @@ summary(mod_interact)$adj.r.squared
 
 The adjusted $R^2$ score ( `r summary(mod_interact)$adj.r.squared` ) is better than the additive model using the same dataset but worse than the additive model using the dataset with Hour and Month as factor variables.
 
-##### Fit an interaction model using the dataset with the factor variables conversion, dataset version-2
+#### An interaction model using the dataset with the factor variables conversion
 
 ```{r}
 mod_interact_factor = lm(Rented ~ . ^ 2, data = bike_factor)
 summary(mod_interact_factor)$adj.r.squared
 ```
 
-The adjusted $R^2$ score has been improved greatly to ~~0.9025~~ `r summary(mod_interact_factor)$adj.r.squared`
+The adjusted $R^2$ score has been improved greatly to `r summary(mod_interact_factor)$adj.r.squared`.
 
-~~\*\*RZ Note: I changed the model comparison contents here since I believe anova need to compare nested models?~~
-
-##### Comparison of additive and interaction models with the 2 datasets
+#### ANOVA: Comparison of additive and interaction models
 
 ```{r}
 anova(mod_additive, mod_interact)
@@ -305,185 +303,172 @@ anova(mod_additive, mod_interact)
 anova(mod_additive_factor, mod_interact_factor)
 ```
 
-By comparing the additive model and the interaction model using the two datasets, we can see the p-value is extremely small in both cases.
-So we prefer the interaction model with dataset version-2(factor variable for hour) based on the Adjusted R-Squared value.
+By comparing the additive model and the interaction model using the two datasets (with or without factor variables conversion), we can see the p-value is extremely small in both cases. So we prefer the interaction model on the dataset with factor variables conversion based on the Adjusted R-Squared value.
 
-#### Outliers in observations
+##### Influential observations with cook's distance
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
-library(dplyr) 
-library(tibble) 
-library(dlookr)
-```
-
-```{r}
-diagnose_numeric(bike_cln)
-```
-
-##### Outliers review with Plot
-
-```{r}
-bike_cln %>% plot_outlier(Rented)
-```
-
-##### Outliers with cook's distance
-
-We use the interaction model with factor variables from above for this evaluation
+We use the interaction model with factor variables from previous discussion for this evaluation.
 
 ```{r}
 mod_interact_factor_cd = cooks.distance(mod_interact_factor)
-count_cd = sum(mod_interact_factor_cd > 4 / length(mod_interact_factor_cd))
+(4 / length(mod_interact_factor_cd))
+(count_cd = sum(mod_interact_factor_cd > 4 / length(mod_interact_factor_cd)))
 ```
 
-There are `r count_cd` observations of total `r length(mod_interact_factor_cd)` that are outliers.
-Lets remove these and fit an interaction model with factor variables.
+There are `r count_cd` influential observations out of total `r length(mod_interact_factor_cd)` observations. Lets remove these and fit an interaction model with factor variables.
 
 ```{r}
 mod_interact_factor_no_ol = lm(Rented ~ . ^ 2, 
                                data = bike_factor,
                                subset = mod_interact_factor_cd 
-                                            < 4 / length(mod_interact_factor_cd))
+                                            <= 4 / length(mod_interact_factor_cd))
 summary(mod_interact_factor_no_ol)$adj.r.squared
-#summary(mod_interact_factor_no_ol)
 ```
 
-We see that the $Adj.R_2$ value has greatly increased to `r summary(mod_interact_factor_no_ol)$adj.r.squared`.
+We see that the adjusted $R^2$ value has greatly increased to `r summary(mod_interact_factor_no_ol)$adj.r.squared`, which naturally makes sense since we removed these outliers and the model can explain more variance in the response variable.
 
-#### Normality Assumption of Observations
+Next, lets try to understand if the original model fit with the new dataset without the first outliers eliminated has outliers as evaluated by cook's distance.
 
 ```{r}
-normality(bike_cln)
+mod_interact_factor_cd_2 = cooks.distance(mod_interact_factor_no_ol)
+(n2=4/length(mod_interact_factor_no_ol))
+(count_cd_2 = sum(mod_interact_factor_cd_2 > n2))
 ```
 
-Check normality of each numeric variable.
-
-```{r}
-bike_factor %>% plot_normality(Rented, Temp, Humidity, Wind, Visibility, 
-                               Radiation, Rain, Snow)
-```
+We see that there are `r count_cd_2` influential points with the outliers removed and model refitted. We eventually did not end up using this model and retained all the original observations. This was because using the factor/sq based models we were unable to complete the "Step" and "Exhaustive Search" operations for the best AIC Model in R.
 
 #### Response Variable Transformations
 
 ##### Square root of the response variable
 
-We will use Hour as factor going forward along with removing outliers noted above.
+We will use Hour and Month as factor variables going forward based on previous discussions.
 
 ```{r}
-# add 1 to response variable to avoid errors in log
-bike_factor$Rented = bike_factor$Rented + 1
+# add 0.001 to response variable to avoid errors in log
+bike_factor$Rented = bike_factor$Rented + 0.001
 ```
 
 ```{r}
 mod_interact_sq = lm(sqrt(Rented) ~ . ^ 2, 
-                     data = bike_factor,
-                     subset = mod_interact_factor_cd 
-                                            < 4 / length(mod_interact_factor_cd))
+                     data = bike_factor)
 summary(mod_interact_sq)$adj.r.squared
 ```
 
-After taking square root of the response variable, the adjusted $R^2$ is further improved to ~~0.9187~~ `r summary(mod_interact_sq)$adj.r.squared` now.
+After taking square root of the response variable, the adjusted $R^2$ is further improved to `r summary(mod_interact_sq)$adj.r.squared` now.
 
 ##### Log transformation on the response variable
 
 ```{r}
 mod_interact_log = lm(log(Rented) ~ . ^ 2, 
-                      data = bike_factor,
-                     subset = mod_interact_factor_cd 
-                                            < 4 / length(mod_interact_factor_cd))
+                      data = bike_factor)
 summary(mod_interact_log)$adj.r.squared
 ```
 
-The adjusted $R^2$ is at ~~0.9363~~ `r summary(mod_interact_log)$adj.r.squared` now.
+The adjusted $R^2$ is at `r summary(mod_interact_log)$adj.r.squared` now.
 
-#### Model Selection with AIC
+#### Model selection with AIC backwards
 
-Let's run AIC backward searching on the interaction model.
-
-\>\>\> DV: should we use mod_interact_sq from this point as the base full model ?
+Let's run AIC backward searching on the interaction model (It takes too long to run step wise model selection on the other models with transformations).
 
 ```{r}
 mod_int_aic = step(mod_interact, direction = "backward", trace = 0)
-```
-
-```{r}
-coef(mod_int_aic)
 summary(mod_int_aic)$adj.r.squared 
 ```
 
-## Evaluating the metrics
+The AIC backward model has an adjusted $R^2$ score of `r summary(mod_int_aic)$adj.r.squared`. We know fewer predictors will lead to a decreased adjusted $R^2$ score but a simpler model with easier interpretation.
 
-### Adjusted $R^2$ Score
+#### Log transformations on select variables
 
-We have already seen the adjusted $R^2$ in the previous section.
-Now let's summarize them.
+Now we will try to do log transformations on those highly skewed variables accordingly to our previous EDA.
 
 ```{r}
-adj_r2 = data.frame(matrix(ncol = 1, nrow = 0)) 
-colnames(adj_r2) = c("Adjusted R_2 Score")
+mod_select = lm(log(Rented) ~ Hour + Temp + Humidity + log(Wind + 0.0001) + 
+                  Visibility + Dew + log(Radiation + 0.0001) + 
+                  log(Rain + 0.0001) + log(Snow + 0.0001) + Month + Weekday + 
+                  Functioning + Holiday, 
+                data = bike_factor)
+summary(mod_select)$adj.r.squared
+```
 
-adj_r2[1, ] = summary(mod_naive)$adj.r.squared 
-adj_r2[2, ] = summary(mod_additive)$adj.r.squared 
-adj_r2[3, ] = summary(mod_additive_factor)$adj.r.squared 
-adj_r2[4, ] = summary(mod_interact)$adj.r.squared 
-adj_r2[5, ] = summary(mod_interact_factor)$adj.r.squared 
-adj_r2[6, ] = summary(mod_interact_sq)$adj.r.squared 
-adj_r2[7, ] = summary(mod_interact_log)$adj.r.squared 
-adj_r2[8, ] = summary(mod_int_aic)$adj.r.squared 
+```{r}
+mod_int_select = lm(log(Rented) ~ (Hour + Temp + Humidity + log(Wind + 0.0001) + 
+                                     Visibility + Dew + log(Radiation + 0.0001) + 
+                                     log(Rain + 0.0001) + log(Snow + 0.0001) + 
+                                     Month + Weekday + Functioning + Holiday) ^ 2, 
+                data = bike_factor)
+summary(mod_int_select)$adj.r.squared
+```
 
-row.names(adj_r2) = c("mod_naive", 
+The interaction model with log transformations on skewed variables achieved the best adjusted $R^2$ score so far.
+
+## Results
+
+In the previous section, we mostly looked at adjusted $R^2$ scores. Now let's use some other evaluation metrics too, such as Cross-validated RMSE and AIC.
+
+```{r}
+calc_loocv_rmse = function(model) {
+  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
+}
+```
+
+```{r}
+result = data.frame(matrix(ncol = 3, nrow = 0)) 
+colnames(result) = c("Adjusted R_2 Score", "Cross-validated RMSE", "AIC")
+
+result[1, ] = c(summary(mod_naive)$adj.r.squared, 
+                calc_loocv_rmse(mod_naive),
+                AIC(mod_naive))
+result[2, ] = c(summary(mod_additive)$adj.r.squared,
+                calc_loocv_rmse(mod_additive),
+                AIC(mod_additive))
+result[3, ] = c(summary(mod_additive_factor)$adj.r.squared,
+                calc_loocv_rmse(mod_additive_factor),
+                AIC(mod_additive_factor))
+result[4, ] = c(summary(mod_interact)$adj.r.squared,
+                calc_loocv_rmse(mod_interact),
+                AIC(mod_interact))
+result[5, ] = c(summary(mod_interact_factor)$adj.r.squared,
+                calc_loocv_rmse(mod_interact_factor),
+                AIC(mod_interact_factor))
+result[6, ] = c(summary(mod_interact_sq)$adj.r.squared,
+                "NA",
+                AIC(mod_interact_sq))
+result[7, ] = c(summary(mod_interact_log)$adj.r.squared,
+                "NA",
+                AIC(mod_interact_log))
+result[8, ] = c(summary(mod_int_aic)$adj.r.squared,
+                calc_loocv_rmse(mod_int_aic),
+                AIC(mod_int_aic))
+result[9, ] = c(summary(mod_select)$adj.r.squared,
+                "NA",
+                AIC(mod_select))
+result[10, ] = c(summary(mod_int_select)$adj.r.squared,
+                "NA",
+                AIC(mod_int_select))
+
+row.names(result) = c("mod_naive", 
                       "mod_additive",
                       "mod_additive_factor",
                       "mod_interact",
                       "mod_interact_factor",
                       "mod_interact_sq",
                       "mod_interact_log",
-                      "mod_int_aic")
+                      "mod_int_aic",
+                      "mod_select",
+                      "mod_int_select")
 
-knitr::kable(adj_r2, "pipe")
+knitr::kable(result, "pipe", digits = 3)
 ```
 
-The interaction model with log transformation of the response variable with the factor variables has the best adjusted $R^2$ score.
+The interaction model with log transformation of skewed variables has the best adjusted $R^2$ score and AIC score. We can see the interaction model with the factor variables has the lowest cross-validated RMSE. However, we can't easily apply this function to the models with transformed response variables.
 
-### Cross-validated RMSE
+### RMSE on test data-set
 
-Define the function to calculate cross-validated RMSE of different models.
-
-```{r}
-calc_loocv_rmse = function(model) {
-  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
-}
-
-loocv_rmse = data.frame(matrix(ncol = 1, nrow = 0)) 
-colnames(loocv_rmse) = c("Cross-validated RMSE")
-
-loocv_rmse[1, ] = calc_loocv_rmse(mod_naive)
-loocv_rmse[2, ] = calc_loocv_rmse(mod_additive)
-loocv_rmse[3, ] = calc_loocv_rmse(mod_additive_factor) 
-loocv_rmse[4, ] = calc_loocv_rmse(mod_interact)
-loocv_rmse[5, ] = calc_loocv_rmse(mod_interact_factor)
-loocv_rmse[6, ] = calc_loocv_rmse(mod_int_aic)
-
-row.names(loocv_rmse) = c("mod_naive", 
-                          "mod_additive",
-                          "mod_additive_factor",
-                          "mod_interact",
-                          "mod_interact_factor",
-                          "mod_int_aic")
-
-knitr::kable(loocv_rmse, "pipe")
-```
-
-We can see the interaction model with the factor variables has the lowest cross-validated RMSE.
-However, we can't easily apply this function to the models with transformed response variables.
-
-### RMSE on test dataset
-
-Split data into train/test to test the models.
-We are only using the dateset with the Hour and Month factor variables now, since we know the factor variables greatly boosted the model performance.
+The previous evaluation metrics are all for seen data and we are not sure if the model with a good score actually over fits. Let's split data into train/test to test how the models perform on unseen data. We are only using the data-set with the Hour and Month factor variables now, since we know the factor variables greatly boosted the model performance.
 
 ```{r}
 set.seed(420)
-bike_idx = sample(1:nrow(bike_factor), 8000)
+bike_idx = sample(1:nrow(bike_factor), 7000)
 bike_trn = bike_factor[bike_idx, ]
 bike_tst = bike_factor[-bike_idx, ]
 ```
@@ -505,13 +490,22 @@ RMSE <- function(model, data, trans = "") {
 }
 ```
 
-We can see the interaction model with sqrt transformation on the response variable has the lowest RMSE on the test dataset.
-
 ```{r warning=FALSE}
 mod_additive_trn = lm(Rented ~ ., data = bike_trn)
 mod_interact_trn = lm(Rented ~ . ^ 2, data = bike_trn)
 mod_interact_sq_trn = lm(sqrt(Rented) ~ . ^ 2, data = bike_trn)
 mod_interact_log_trn = lm(log(Rented) ~ . ^ 2, data = bike_trn)
+mod_select_trn = lm(log(Rented) ~ Hour + Temp + Humidity + log(Wind + 0.0001) + 
+                      Visibility + Dew + log(Radiation + 0.0001) + 
+                      log(Rain + 0.0001) + log(Snow + 0.0001) + Month + 
+                      Weekday + Functioning + Holiday, 
+                    data = bike_trn)
+mod_int_select_trn = lm(log(Rented) ~ (Hour + Temp + Humidity + 
+                                         log(Wind + 0.0001) + Visibility + Dew + 
+                                         log(Radiation + 0.0001) + 
+                                         log(Rain + 0.0001) + log(Snow + 0.0001) + 
+                                         Month + Weekday + Functioning + Holiday) ^ 2, 
+                        data = bike_trn)
 
 test_rmse = data.frame(matrix(ncol = 1, nrow = 0)) 
 colnames(test_rmse) = c("Test Dataset RMSE")
@@ -520,98 +514,85 @@ test_rmse[1, ] = RMSE(mod_additive_trn, bike_tst)
 test_rmse[2, ] = RMSE(mod_interact_trn, bike_tst)
 test_rmse[3, ] = RMSE(mod_interact_sq_trn, bike_tst, trans = "sqrt")
 test_rmse[4, ] = RMSE(mod_interact_log_trn, bike_tst, trans = "log")
+test_rmse[5, ] = RMSE(mod_select_trn, bike_tst, trans = "log")
+test_rmse[6, ] = RMSE(mod_int_select_trn, bike_tst, trans = "log")
 
 row.names(test_rmse) = c("mod_additive_trn", 
                          "mod_interact_trn",
                          "mod_interact_sq_trn",
-                         "mod_interact_log_trn")
+                         "mod_interact_log_trn",
+                         "mod_select_trn",
+                         "mod_int_select_trn")
 
 knitr::kable(test_rmse, "pipe")
 ```
 
-We can see the interaction model with sqrt transformation of the response variable has the lowest RMSE on the test dataset.
+We can see both mod_interact_sq_trn and mod_int_select_trn have very lowest RMSE on the test dataset. Considering mod_int_select_trn also has the best metrics in previous evaluation, we would like to choose this model as the best prediction model.
 
-## Additional Visualizations
+### Residual diagnostics
 
-Check fitted vs residuals for the best models from the metrics evaluation section:
-
-```{r}
-par(mfrow = c(1, 2))
-
-plot(fitted(mod_interact_trn), resid(mod_interact_trn), col = "grey", pch = 20,
-     xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
-abline(h = 0, col = "darkorange", lwd = 2)
-
-qqnorm(resid(mod_interact_trn), main = "Normal Q-Q Plot", col = "darkgrey")
-qqline(resid(mod_interact_trn), col = "dodgerblue", lwd = 2)
-```
+Check model assumptions for the best model selected from the metrics evaluation section:
 
 ```{r}
 par(mfrow = c(1, 2))
 
-plot(fitted(mod_interact_sq_trn), resid(mod_interact_sq_trn), col = "grey", pch = 20,
+plot(fitted(mod_int_select), resid(mod_int_select), col = "grey", pch = 20,
      xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
 abline(h = 0, col = "darkorange", lwd = 2)
 
-qqnorm(resid(mod_interact_sq_trn), main = "Normal Q-Q Plot", col = "darkgrey")
-qqline(resid(mod_interact_sq_trn), col = "dodgerblue", lwd = 2)
+qqnorm(resid(mod_int_select), main = "Normal Q-Q Plot", col = "darkgrey")
+qqline(resid(mod_int_select), col = "dodgerblue", lwd = 2)
 ```
+
+On the Fitted vs Residual chart, the values more or less center around 0, so linear assumption is valid. The spread of the data is also relatively equal along the x-axis, so constant variance assumption looks valid too. The normality assumption is violated accordingly to the QQ-Plot. Maybe there is another family of model that is better suited for our problem. For now, we are happy that our model can achieve good predictions.
+
+## Discussion
+
+In order to understand the factors that affect rented bike counts and make accurate predictions on the hourly rental bike demand, we chose Parametric Model Family and Multiple Linear Regression Models for the fit.
+
+We applied multiple model building techniques we studied in this course:
+
+-   Data exploration analysis and outlier diagnostics. We performed feature engineering and created additional variables based on existing variables. We converted categorical variables into proper factor variables.
+
+-   Used Multiple linear regression , ANOVA for p-value analysis, predictor Interaction ,Residual diagnostics ,Transformations and Step-wise model selection with Variable selection
+
+-   We evaluated the models' performances using several metrics: Adjusted $R^2$ Score, Cross-validated RMSE, AIC and RMSE on test data-set.
+
+-   The final model we chose is: **lm(log(Rented) \~ (Hour + Temp + Humidity + log(Wind + 0.0001) + Visibility + Dew + log(Radiation + 0.0001) + log(Rain + 0.0001) + log(Snow + 0.0001) + Month + Weekday + Functioning + Holiday) \^ 2, data = bike_factor)**. This model has great performances on Adjusted $R^2$ Score, AIC and RMSE on test data-set, which means it predict well on both train and test data-sets, no under-fitting or over-fitting, and is not too complex either.
+
+The model does have some limitations which may affect the interpretation of the coefficients:
+
+-   The normality assumption is violated.
+
+-   We discussed high variance inflation factors and influential observations, but didn't attempt to remove them in the final models.
+
+-   Since we don't plan to use the coefficients for any important decisions, we are fine with the final model which gives good predictions.
+
+-   Though we used linear regression for the prediction problem, we acknowledge the fact that the response variable is actually integer. Strictly speaking, poisson regression may suit this problem better. We didn't attempt that since it is beyond the scope of this course.
+
+We can use this model to predict the hourly rental bike demand in Seoul and help the Bike Sharing System plan inventory in advance. The system may be able to use this demand information to offer flexible rates to attract more users during the slow hours and make more revenue during peak hours. By knowing that people usually rent more bikes on weekdays during commute hours, the Bike Sharing System may work with the other public transit system to better coordinate the city's transportation network, or work with tourism agency to promote rental bikes during weekends and holidays.
+
+## Appendix
+
+### The coefficients of the AIC model
 
 ```{r}
-par(mfrow = c(1, 2))
-
-plot(fitted(mod_interact_log_trn), resid(mod_interact_log_trn), col = "grey", pch = 20,
-     xlab = "Fitted", ylab = "Residuals", main = "Fitted versus Residuals")
-abline(h = 0, col = "darkorange", lwd = 2)
-
-qqnorm(resid(mod_interact_log_trn), main = "Normal Q-Q Plot", col = "darkgrey")
-qqline(resid(mod_interact_log_trn), col = "dodgerblue", lwd = 2)
+coef(mod_int_aic)
 ```
 
-The constant variance assumption is violated based on the above plots, but since our goal is prediction we are not concerned.
+### Normality assumption of observations
 
-## Conclusions
+During our data exploration analysis, we looked into the normality assumption of each variable. Since it takes more spaces, we are showing the result here.
 
--   For the Model Building for Prediction Goal we chose Parametric Model Family and Multiple Linear Regression Models for the fit.
+```{r}
+normality(bike_cln)
+```
 
--   With this family, fit and form constraint, we used plotting techniques, AIC and correlation diagnostic for variable / predictor selection and transformations.
-    We chose temperature, have the most effect with the a good fit.
-    For prediction, we need models which perform well for Adjusted R2 and we saw that the interaction m
+Check normality of each numeric variable - this provides valuable information about the skewness of each variable. We used this information and did log transformation on select variable and got the best model.
 
--   Family,Form,Fit of Model
+```{r}
+bike_factor %>% plot_normality(Rented, Temp, Humidity, Wind, Visibility, 
+                               Radiation, Rain, Snow)
+```
 
--   Elements of a good model for Prediction
-
-+++++++++ Conclusion flow - Delete later +++++++++
-
-## What Family, Fit and Form to use ?
-
-### Family : Parametric Model
-
-### Form : Linear Models
-
-### Fit : SLR, MLR and GLR Models
-
-## What is a good Prediction Model ?
-
-### Model assumptions applicability
-
-    - LINE ? Normality of train set(observations) and constant variance - Not important for Prediction
-    - Unusual Observations in Observed Data ?  Guard against over-fitting
-        - Leverage, Outliers, Influence, remove Influential observations using cooks.distance
-        - Variable Selection 
-        - Transformations needed ? 
-
-### Model Building and Diagnostics
-
-#### Maximize R2, Adjusted R2, Multiple R2
-
-    - Compare Bigger Vs Smaller models 
-    - Compare Models with predictor Interactions, higher order predictors 
-    -  Variable Selection Precedures:
-        AIC, BIC , Step and exhaustive
-
-#### Minimize RMSE , LOOCV RMSE
-
-    - Train, test split
-    - Select 2-3 Models and compare and contrast
+Authors: Rui Zou (ruizou4), Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2)
