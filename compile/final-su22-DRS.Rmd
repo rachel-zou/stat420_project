@@ -2,17 +2,19 @@
 title: "Seoul Bike Sharing Demand Analysis and Prediction"
 date: '2022-08-03'
 output:
-  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
+  pdf_document: default
 urlcolor: cyan
 ---
 
 ------------------------------------------------------------------------
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
-options(scipen = 1, digits = 4, width = 80, fig.alin = "center")
+options(scipen = 1, digits = 2, width = 80, fig.alin = "center")
+library(knitr)
+opts_chunk$set(cache = TRUE, autodep = TRUE)
 ```
 
 ## Introduction
@@ -54,14 +56,15 @@ First of all, we loaded the data file in R. Since the column names in the origin
 
 We printed out the structure and first few rows of the data file below. We also confirmed that the data file doesn't have any null values.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+library(formattable)
 columns = c("Date","Rented","Hour","Temp","Humidity",
             "Wind","Visibility","Dew",
             "Radiation","Rain","Snow","Season","Holiday",
             "Functioning")
 bike = read.csv("../data/SeoulBikeData.csv", col.names = columns)
 str(bike)
-head(bike)
+formattable(head(bike[,1:10]), digits = 2)
 is.null(bike)  
 ```
 
@@ -94,9 +97,11 @@ We successfully coerced the categorical variables into factor variables to help 
 
 Before we start any modeling process, let's try to understand our data better and gain a more intuitive understanding about our variables.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+library(corrplot)
 bike_num = subset(bike, select = -c(Date, Season, Holiday, Functioning, Weekday, Weekend))
-round(cor(bike_num), 2)
+M = round(cor(bike_num), 2)
+corrplot(M, tl.col = "black")
 ```
 
 Looking at the pairwise correlation among the variables, we can see Temperature has the highest correlation with rented bike counts (0.54). Hour and Dew also have high correlation with the response variable, 0.41 and 0.38 respectively.
@@ -106,9 +111,11 @@ library(corrr)
 library(dplyr)
 
 correlations = corrr::correlate(bike_num)
-top_5 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), desc(r)), 5)
-top_5
+top_5 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE), 
+                            desc(r)), 5)
+formattable(top_5, align=c('l', 'l', 'l'), digits = 2)
 ```
+
 
 We printed out the top 5 highly correlated variables in the data set and can see we have some highly correlated variables in the data set, which could suggest multi-collinearity. We may want to address this later in the modeling process since we are interested in interpreting the coefficients.
 
@@ -145,9 +152,7 @@ plot(Rented ~ Functioning, data = bike)
 We can see we usually have higher rented bike counts on weekdays and non-holidays - perhaps more people use rental bikes as a commute method instead of using it for leisure purpose. We have highest rented bike counts during summer and lowest counts during winter, which makes sense. We actually don't have any rented bikes on non-functioning days of the rental bike system.
 
 ```{r}
-plot(Rented ~ as.factor(Month), 
-     xlab = "Month",
-     data = bike)
+plot(Rented ~ as.factor(Month), xlab = "Month", data = bike)
 ```
 
 Further drilling seasons down to month, we can see the rental bike count reaches the peak in Jun and the lowest point in Jan.
@@ -159,21 +164,14 @@ plot(Rented ~ Weekday, data = bike)
 Generally speaking, we have lower demands on Saturday and Sunday, while other weekdays have similar higher demand.
 
 ```{r}
-plot(Rented ~ as.factor(Hour), 
-     xlab = "Hour",
-     data = bike)
+plot(Rented ~ as.factor(Hour), xlab = "Hour",data = bike)
 ```
 
 We can see two peaks on the rental bike count vs hour chart: one at 8 AM and the other one at 6 PM, which correspond with the peak commute hours. This supports our assumption earlier that people may use rented bikes more as a commute method.
 
 ```{r}
-ggplot(bike,                                      
-       aes(x = Hour,
-           y = Rented,
-           fill = Weekday)) +
-  facet_grid(. ~ Weekday) +
-  geom_bar(stat = "identity",
-           position = "dodge")
+ggplot(bike, aes(x = Hour, y = Rented, fill = Weekday)) + 
+      facet_grid(. ~ Weekday) + geom_bar(stat = "identity", position = "dodge")
 ```
 
 Combine Weekday and Hour together, we can see that on weekdays, the hourly trend is similar - a small peak in the morning, and then the demand grows stronger in the afternoon and continues into the evening. During weekends, the demand peaks around evening time.
@@ -204,7 +202,8 @@ library(dlookr)
 ```
 
 ```{r}
-diagnose_numeric(bike)
+diag = diagnose_numeric(bike)
+formattable(diag, digits = 2)
 ```
 
 ```{r}
@@ -318,8 +317,7 @@ mod_interact_factor_cd = cooks.distance(mod_interact_factor)
 There are `r count_cd` influential observations out of total `r length(mod_interact_factor_cd)` observations. Lets remove these and fit an interaction model with factor variables.
 
 ```{r}
-mod_interact_factor_no_ol = lm(Rented ~ . ^ 2, 
-                               data = bike_factor,
+mod_interact_factor_no_ol = lm(Rented ~ . ^ 2, data = bike_factor,
                                subset = mod_interact_factor_cd 
                                             <= 4 / length(mod_interact_factor_cd))
 summary(mod_interact_factor_no_ol)$adj.r.squared
@@ -349,8 +347,7 @@ bike_factor$Rented = bike_factor$Rented + 0.001
 ```
 
 ```{r}
-mod_interact_sq = lm(sqrt(Rented) ~ . ^ 2, 
-                     data = bike_factor)
+mod_interact_sq = lm(sqrt(Rented) ~ . ^ 2, data = bike_factor)
 summary(mod_interact_sq)$adj.r.squared
 ```
 
@@ -359,8 +356,7 @@ After taking square root of the response variable, the adjusted $R^2$ is further
 ##### Log transformation on the response variable
 
 ```{r}
-mod_interact_log = lm(log(Rented) ~ . ^ 2, 
-                      data = bike_factor)
+mod_interact_log = lm(log(Rented) ~ . ^ 2, data = bike_factor)
 summary(mod_interact_log)$adj.r.squared
 ```
 
@@ -370,9 +366,9 @@ The adjusted $R^2$ is at `r summary(mod_interact_log)$adj.r.squared` now.
 
 Let's run AIC backward searching on the interaction model (It takes too long to run step wise model selection on the other models with transformations).
 
-```{r}
+```{r cache=TRUE}
 mod_int_aic = step(mod_interact, direction = "backward", trace = 0)
-summary(mod_int_aic)$adj.r.squared 
+summary(mod_int_aic)$adj.r.squared
 ```
 
 The AIC backward model has an adjusted $R^2$ score of `r summary(mod_int_aic)$adj.r.squared`. We know fewer predictors will lead to a decreased adjusted $R^2$ score but a simpler model with easier interpretation.
@@ -385,8 +381,7 @@ Now we will try to do log transformations on those highly skewed variables accor
 mod_select = lm(log(Rented) ~ Hour + Temp + Humidity + log(Wind + 0.0001) + 
                   Visibility + Dew + log(Radiation + 0.0001) + 
                   log(Rain + 0.0001) + log(Snow + 0.0001) + Month + Weekday + 
-                  Functioning + Holiday, 
-                data = bike_factor)
+                  Functioning + Holiday, data = bike_factor)
 summary(mod_select)$adj.r.squared
 ```
 
@@ -395,7 +390,7 @@ mod_int_select = lm(log(Rented) ~ (Hour + Temp + Humidity + log(Wind + 0.0001) +
                                      Visibility + Dew + log(Radiation + 0.0001) + 
                                      log(Rain + 0.0001) + log(Snow + 0.0001) + 
                                      Month + Weekday + Functioning + Holiday) ^ 2, 
-                data = bike_factor)
+                    data = bike_factor)
 summary(mod_int_select)$adj.r.squared
 ```
 
@@ -412,7 +407,7 @@ calc_loocv_rmse = function(model) {
 ```
 
 ```{r}
-result = data.frame(matrix(ncol = 3, nrow = 0)) 
+result = data.frame(matrix(ncol = 3, nrow = 10)) 
 colnames(result) = c("Adjusted R_2 Score", "Cross-validated RMSE", "AIC")
 
 result[1, ] = c(summary(mod_naive)$adj.r.squared, 
@@ -457,7 +452,8 @@ row.names(result) = c("mod_naive",
                       "mod_select",
                       "mod_int_select")
 
-knitr::kable(result, "pipe", digits = 3)
+# knitr::kable(result, "pipe")
+formattable(result, digits = 2)
 ```
 
 The interaction model with log transformation of skewed variables has the best adjusted $R^2$ score and AIC score. We can see the interaction model with the factor variables has the lowest cross-validated RMSE. However, we can't easily apply this function to the models with transformed response variables.
@@ -524,7 +520,8 @@ row.names(test_rmse) = c("mod_additive_trn",
                          "mod_select_trn",
                          "mod_int_select_trn")
 
-knitr::kable(test_rmse, "pipe")
+# knitr::kable(test_rmse, "pipe")
+formattable(test_rmse, digits = 2)
 ```
 
 We can see both mod_interact_sq_trn and mod_int_select_trn have very lowest RMSE on the test dataset. Considering mod_int_select_trn also has the best metrics in previous evaluation, we would like to choose this model as the best prediction model.
