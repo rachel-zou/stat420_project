@@ -2,10 +2,10 @@
 title: "Seoul Bike Sharing Demand Analysis and Prediction"
 date: '2022-08-05'
 output:
-  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
+  pdf_document: default
 urlcolor: cyan
 ---
 
@@ -621,4 +621,5 @@ bike_factor %>% plot_normality(Rented, Temp, Humidity, Wind, Visibility,
                                Radiation, Rain, Snow)
 ```
 
-Authors: Rui Zou (ruizou4), Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2)
+### Authors
+Rui Zou (ruizou4), Ahmad Sadeed (asadeed2), Deepa Nemmili Veeravalli (deepan2)
