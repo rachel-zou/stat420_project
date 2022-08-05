@@ -1,11 +1,11 @@
 ---
 title: "Seoul Bike Sharing Demand Analysis and Prediction"
-date: '2022-08-03'
+date: '2022-08-05'
 output:
+  pdf_document: default
   html_document: 
     theme: readable
     toc: yes
-  pdf_document: default
 urlcolor: cyan
 ---
 
@@ -105,7 +105,7 @@ M = round(cor(bike_num), 2)
 corrplot(M, tl.col = "black")
 ```
 
-Looking at the pairwise correlation among the variables, we can see Temperature has the highest correlation with rented bike counts (0.54). Hour and Dew also have high correlation with the response variable, 0.41 and 0.38 respectively.
+Looking at the pairwise correlation among the variables, we can see Temperature has the highest correlation with rented bike counts. Hour and Dew also have high correlation with the response variable.
 
 ```{r, message = FALSE, warning = FALSE}
 library(corrr)
@@ -116,7 +116,6 @@ top_5 = head(dplyr::arrange(corrr::stretch(correlations, remove.dups = TRUE),
                             desc(r)), 5)
 formattable(top_5, align=c('l', 'l', 'l'), digits = 2)
 ```
-
 
 We printed out the top 5 highly correlated variables in the data set and can see we have some highly correlated variables in the data set, which could suggest multi-collinearity. We may want to address this later in the modeling process since we are interested in interpreting the coefficients.
 
@@ -311,7 +310,6 @@ We use the interaction model with factor variables from previous discussion for 
 
 ```{r}
 mod_interact_factor_cd = cooks.distance(mod_interact_factor)
-(4 / length(mod_interact_factor_cd))
 (count_cd = sum(mod_interact_factor_cd > 4 / length(mod_interact_factor_cd)))
 ```
 
@@ -330,8 +328,7 @@ Next, lets try to understand if the original model fit with the new dataset with
 
 ```{r}
 mod_interact_factor_cd_2 = cooks.distance(mod_interact_factor_no_ol)
-(n2=4/length(mod_interact_factor_no_ol))
-(count_cd_2 = sum(mod_interact_factor_cd_2 > n2))
+(count_cd_2 = sum(mod_interact_factor_cd_2 > 4/length(mod_interact_factor_no_ol)))
 ```
 
 We see that there are `r count_cd_2` influential points with the outliers removed and model refitted. We eventually did not end up using this model and retained all the original observations. This was because using the factor/sq based models we were unable to complete the "Step" and "Exhaustive Search" operations for the best AIC Model in R.
@@ -365,7 +362,7 @@ The adjusted $R^2$ is at `r summary(mod_interact_log)$adj.r.squared` now.
 
 #### Model selection with AIC backwards
 
-Let's run AIC backward searching on the interaction model (It takes too long to run step wise model selection on the other models with transformations).
+Let's run AIC backward searching on the interaction model (It takes too long to run step wise model selection on the other models with transformations). We commented out the code which did the actual selection work to speed up the compilation of the final report, and pasted the selected model directly below.
 
 ```{r cache=TRUE}
 # mod_int_aic = step(mod_interact, direction = "backward", trace = 0)
@@ -471,6 +468,7 @@ row.names(result) = c("mod_naive",
                       "mod_int_select")
 ```
 
+Note that the 0 in the table below means "Not Available", instead of meaning a perfect score.
 
 ```{r}
 # options(knitr.kable.NA = "0")
@@ -489,16 +487,15 @@ knitr::kable(result, digits = 2, align = "lccr") %>%
   kable_styling() 
 ```
 
-
 The interaction model with log transformation of skewed variables has the best adjusted $R^2$ score and AIC score. We can see the interaction model with the factor variables has the lowest cross-validated RMSE. However, we can't easily apply this function to the models with transformed response variables.
 
 ### RMSE on test data-set
 
-The previous evaluation metrics are all for seen data and we are not sure if the model with a good score actually over fits. Let's split data into train/test to test how the models perform on unseen data. We are only using the data-set with the Hour and Month factor variables now, since we know the factor variables greatly boosted the model performance.
+The previous evaluation metrics are all for seen data and we are not sure if the model with a good score actually over fits. Let's split data into train/test to test how the models perform on unseen data. We are only using the data-set with the Hour and Month factor variables now, since we know the factor variables greatly boosted the model performance. The train dataset will contain 6132 observations, which is approximately 70% of the total observations.
 
 ```{r}
 set.seed(420)
-bike_idx = sample(1:nrow(bike_factor), 7000)
+bike_idx = sample(1:nrow(bike_factor), 6132)
 bike_trn = bike_factor[bike_idx, ]
 bike_tst = bike_factor[-bike_idx, ]
 ```
@@ -608,12 +605,6 @@ The model does have some limitations which may affect the interpretation of the 
 We can use this model to predict the hourly rental bike demand in Seoul and help the Bike Sharing System plan inventory in advance. The system may be able to use this demand information to offer flexible rates to attract more users during the slow hours and make more revenue during peak hours. By knowing that people usually rent more bikes on weekdays during commute hours, the Bike Sharing System may work with the other public transit system to better coordinate the city's transportation network, or work with tourism agency to promote rental bikes during weekends and holidays.
 
 ## Appendix
-
-### The coefficients of the AIC model
-
-```{r}
-coef(mod_int_aic)
-```
 
 ### Normality assumption of observations
 
